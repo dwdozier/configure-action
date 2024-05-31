@@ -1,6 +1,6 @@
 {
   "name": "configure-action",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Securely deliver CloudTruth configuration and secrets into your GitHub Actions workflows.",
   "main": "lib/main.js",
   "scripts": {
@@ -15,7 +15,7 @@
     "all": "npm run build && npm run format && npm run lint && npm run package && npm test"
   },
   "engines": {
-    "node": ">=16.0.0 <17.0.0",
+    "node": "<=20",
     "npm": ">=8"
   },
   "repository": {
