@@ -31,7 +31,7 @@ export async function fetchWithRetry(
       core.info(`Fetching ${url} with ${timeoutInSeconds} seconds timeout and will try ${tries} time(s).`);
       controller = new AbortController();
       timeoutId = setTimeout(() => controller.abort(), timeoutInSeconds * 1000);
-      new Error(tryCount.toString())
+     throw new Error(tryCount.toString())
       response = await fetch(url, {
         signal: controller.signal,
         headers: {
