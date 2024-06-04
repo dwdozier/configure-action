@@ -28,6 +28,7 @@ export default async function fetchWithRetry(
     let timeoutId;
 
     try {
+      console.log(`Fetching ${url} with ${timeoutInSeconds} seconds timeout and will try ${tries} time(s).`);
       controller = new AbortController();
       timeoutId = setTimeout(() => controller.abort(), timeoutInSeconds * 1000);
       response = await fetch(url, {
@@ -37,6 +38,8 @@ export default async function fetchWithRetry(
           ...headers
         }, ...init});
 
+      console.log(`Response status: ${response.status}`);
+      console.log(`timeoutId: ${timeoutId}`);
       clearTimeout(timeoutId);
 
       if (response.ok) {
