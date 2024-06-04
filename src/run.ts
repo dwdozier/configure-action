@@ -12,8 +12,51 @@ import {HttpResponse} from './gen/http-client'
 
 import fetch from 'isomorphic-fetch'
 import {env} from 'process'
+import { clear } from 'console'
 
 const USER_AGENT = `configure-action/${LIB_VERSION}`
+
+export default async function fetchWithRetry(
+  url: RequestInfo, {headers, ...options}: RequestInit = {},
+  init?: RequestInit,
+  {timeoutInSeconds, tries } = {timeoutInSeconds: 10, tries: 3},
+) : Promise<Response> {
+  let response: Response;
+  let controller: AbortController;
+
+  for (let tryCount = 0; tryCount < tries; tryCount++) {
+    let timeoutId;
+
+    try {
+      controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), timeoutInSeconds * 1000);
+      response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': USER_AGENT,
+          ...headers
+        }, ...init});
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        return response;
+      }
+    } catch (e) {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+
+      if (!(e instanceof DOMException) || e.name !== 'AbortError') {
+        throw e;
+      }
+    }
+  }
+
+  throw new Error(
+    `Failed to fetch ${url} after ${tries} tries with ${timeoutInSeconds} seconds timeout.`
+  );
+}
 
 export const configurefetch = (
   url: RequestInfo,
@@ -34,7 +77,7 @@ type SecurityDataType = {apikey: string}
 export function api(): Api<SecurityDataType> {
   const api = new Api<SecurityDataType>({
     baseUrl: core.getInput('server') || 'https://api.cloudtruth.io',
-    customFetch: configurefetch,
+    customFetch: fetchWithRetry,
     securityWorker: (securityData: SecurityDataType | null) => {
       return {
         headers: {
