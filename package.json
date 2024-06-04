@@ -15,7 +15,7 @@
     "all": "npm run build && npm run format && npm run lint && npm run package && npm test"
   },
   "engines": {
-    "node": "<=20",
+    "node": ">=20",
     "npm": ">=8"
   },
   "repository": {

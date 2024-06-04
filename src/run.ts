@@ -16,7 +16,7 @@ import { clear } from 'console'
 
 const USER_AGENT = `configure-action/${LIB_VERSION}`
 
-export default async function fetchWithRetry(
+export async function fetchWithRetry(
   url: RequestInfo, {headers, ...options}: RequestInit = {},
   init?: RequestInit,
   {timeoutInSeconds, tries } = {timeoutInSeconds: 10, tries: 3},
@@ -31,6 +31,7 @@ export default async function fetchWithRetry(
       core.info(`Fetching ${url} with ${timeoutInSeconds} seconds timeout and will try ${tries} time(s).`);
       controller = new AbortController();
       timeoutId = setTimeout(() => controller.abort(), timeoutInSeconds * 1000);
+      new Error(tryCount.toString())
       response = await fetch(url, {
         signal: controller.signal,
         headers: {
@@ -80,7 +81,7 @@ type SecurityDataType = {apikey: string}
 export function api(): Api<SecurityDataType> {
   const api = new Api<SecurityDataType>({
     baseUrl: core.getInput('server') || 'https://api.cloudtruth.io',
-    customFetch: fetchWithRetry,
+    customFetch: fetchWithRetry as any,
     securityWorker: (securityData: SecurityDataType | null) => {
       return {
         headers: {
