@@ -2834,13 +2834,47 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.run = exports.api = exports.configurefetch = void 0;
+exports.run = exports.api = exports.configurefetch = exports.fetchWithRetry = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const Api_1 = __nccwpck_require__(428);
 const version_1 = __nccwpck_require__(8217);
 const uuid_1 = __nccwpck_require__(5840);
 const isomorphic_fetch_1 = __importDefault(__nccwpck_require__(2340));
 const USER_AGENT = `configure-action/${version_1.LIB_VERSION}`;
+async function fetchWithRetry(url, { headers, ...options } = {}, init, { timeoutInSeconds, tries } = { timeoutInSeconds: 10, tries: 1 }) {
+    let response;
+    let controller;
+    core.debug(`Fetching ${url} with ${timeoutInSeconds} seconds timeout and will try ${tries} time(s).`);
+    for (let tryCount = 0; tryCount < tries; tryCount++) {
+        core.debug(`Try ${tryCount + 1} of ${tries}.`);
+        let timeoutId;
+        try {
+            controller = new AbortController();
+            timeoutId = setTimeout(() => controller.abort(), timeoutInSeconds * 1000);
+            response = await (0, isomorphic_fetch_1.default)(url, {
+                signal: controller.signal,
+                headers: {
+                    'User-Agent': USER_AGENT,
+                    ...headers
+                },
+                ...init
+            });
+            clearTimeout(timeoutId);
+            return response;
+        }
+        catch (error) {
+            core.debug(`Caught error ${error}`);
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+            if (!(error instanceof DOMException) || error.name !== 'AbortError') {
+                throw error;
+            }
+        }
+    }
+    throw new Error(`Failed to fetch ${url} after ${tries} tries.`);
+}
+exports.fetchWithRetry = fetchWithRetry;
 const configurefetch = (url, 
 /* istanbul ignore next */
 { headers, ...options } = {}) => {
@@ -2856,7 +2890,7 @@ exports.configurefetch = configurefetch;
 function api() {
     const api = new Api_1.Api({
         baseUrl: core.getInput('server') || 'https://api.cloudtruth.io',
-        customFetch: exports.configurefetch,
+        customFetch: fetchWithRetry,
         securityWorker: (securityData) => {
             return {
                 headers: {
@@ -2867,6 +2901,7 @@ function api() {
         }
     });
     api.setSecurityData({ apikey: core.getInput('apikey') });
+    core.debug(`Using API server ${JSON.stringify(api)}`);
     return api;
 }
 exports.api = api;
@@ -2919,18 +2954,27 @@ async function run() {
         const environment = core.getInput('environment', { required: true });
         const tag = core.getInput('tag') || undefined;
         for (let page = 1;; ++page) {
-            core.debug(`Requesting parameter values for project='${project_id}' environment='${environment}' tag='${tag}' page=${page}`);
             let page_size = undefined;
             if (process.env.TESTING_REST_API_PAGE_SIZE) {
                 page_size = parseInt(process.env.TESTING_REST_API_PAGE_SIZE);
             }
-            const response = await client.projectsParametersList({
+            const payload = {
                 projectPk: project_id,
                 environment: environment,
-                tag: tag,
                 page: page,
                 page_size: page_size
-            });
+            };
+            if (tag) {
+                payload.tag = tag;
+                core.debug(`Requesting parameter values for project='${project_id}' environment='${environment}' tag='${tag}' page=${page}`);
+            }
+            else {
+                core.debug(`Requesting parameter values for project='${project_id}' environment='${environment}' page=${page}`);
+            }
+            core.debug(`Payload ${JSON.stringify(payload)}`);
+            const response = await client.projectsParametersList(payload);
+            core.debug(`Received ${response.data.results.length} parameters.`);
+            core.debug(`Data: ${JSON.stringify(response.data)}`);
             inject(response);
             if (response.data.next == null) {
                 if (page == 1 && response.data.count == 0) {
@@ -2956,7 +3000,7 @@ exports.run = run;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.LIB_VERSION = void 0;
-exports.LIB_VERSION = "2.2.0";
+exports.LIB_VERSION = "2.2.1";
 
 
 /***/ }),

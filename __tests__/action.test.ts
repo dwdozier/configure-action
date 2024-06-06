@@ -19,12 +19,14 @@ jestPollyConfigService.config = {
 process.env.INPUT_APIKEY = process.env.CLOUDTRUTH_API_KEY
 process.env.INPUT_ENVIRONMENT = 'default'
 process.env.INPUT_PROJECT = 'cloudtruth/configure-action'
-process.env.INPUT_SERVER = 'https://localhost:8000'
+process.env.INPUT_SERVER = process.env.CLOUDTRUTH_SERVER || 'https://localhost:8000'
 process.env.TESTING_REST_API_PAGE_SIZE = '3' // to force multiple pages to be tested
 
 async function setup() {
   // helper to seed the test environment
+  core.debug(`Setting up test environment, creating client`)
   const client = api()
+  core.debug(`client created ${JSON.stringify(client)}`)
 
   let default_environment = (await client.environmentsList({name: process.env.INPUT_ENVIRONMENT!})).data.results![0]
   let staging_environment = (await client.environmentsList({name: 'staging'})).data.results![0]
@@ -92,7 +94,7 @@ async function setup() {
 
 describe('configure-action tests', () => {
   beforeAll(async () => {
-    if (process.env.SETUP == 'setup') {
+    if (process.env.SETUP === 'setup') {
       await setup()
     }
   })
@@ -129,6 +131,7 @@ describe('configure-action tests', () => {
     process.env.INPUT_PROJECT = test_project.id
     let default_environment = (await client.environmentsList({name: process.env.INPUT_ENVIRONMENT!})).data.results![0]
     process.env.INPUT_ENVIRONMENT = default_environment.id
+    core.info(`Using environment ${default_environment.id}`)
     const spySetEnvvar = jest.spyOn(core, 'exportVariable')
     const spySetSecret = jest.spyOn(core, 'setSecret')
     await run()
@@ -186,7 +189,9 @@ describe('configure-action tests', () => {
     process.env['INPUT_PROJECT'] = '39c58d99-ca5f-4802-8c2e-f3c060d57934'
     const spyFailed = jest.spyOn(core, 'setFailed')
     await run()
-    expect(spyFailed).toHaveBeenCalledWith(`Project "39c58d99-ca5f-4802-8c2e-f3c060d57934": Not found.`)
+    expect(spyFailed).toHaveBeenCalledWith(
+      `Project \"39c58d99-ca5f-4802-8c2e-f3c060d57934\": No Project matches the given query.`
+    )
   })
 
   it('fails properly with an unknown project name', async () => {
@@ -207,14 +212,14 @@ describe('configure-action tests', () => {
     process.env['INPUT_ENVIRONMENT'] = '39c58d99-ca5f-4802-8c2e-f3c060d57934'
     const spyFailed = jest.spyOn(core, 'setFailed')
     await run()
-    expect(spyFailed).toHaveBeenCalledWith(`Not found.`)
+    expect(spyFailed).toHaveBeenCalledWith(`Environment(s) not found: 39c58d99-ca5f-4802-8c2e-f3c060d57934`)
   })
 
   it('fails properly with an unknown environment name', async () => {
     process.env['INPUT_ENVIRONMENT'] = 'no_such_environment'
     const spyFailed = jest.spyOn(core, 'setFailed')
     await run()
-    expect(spyFailed).toHaveBeenCalledWith(`Not found.`)
+    expect(spyFailed).toHaveBeenCalledWith(`Environment(s) not found: no_such_environment`)
   })
 
   it('fails properly with an unknown tag name', async () => {

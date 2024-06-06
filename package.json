@@ -11,7 +11,7 @@
     "generate-client": "npx swagger-typescript-api -p openapi.json -o ./src/gen --modular --responses --route-types --extract-request-params --extract-request-body",
     "lint": "eslint",
     "package": "ncc build --source-map --license licenses.txt",
-    "test": "jest -i --coverage --runInBand --detectOpenHandles",
+    "test": "jest -i --coverage --runInBand --detectOpenHandles --verbose",
     "all": "npm run build && npm run format && npm run lint && npm run package && npm test"
   },
   "engines": {

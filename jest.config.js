@@ -6,6 +6,7 @@ module.exports = {
   testEnvironment: 'setup-polly-jest/jest-environment-jsdom',
   testMatch: ['**/*.test.ts'],
   testRunner: "jest-jasmine2",
+  testTimeout: 40000,
   transform: {
     '^.+\\.ts$': 'ts-jest'
   },

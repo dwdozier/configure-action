@@ -3,63 +3,57 @@
 //
 
 import * as core from '@actions/core'
-import * as github from '@actions/github'
 import {Api} from './gen/Api'
 import {LIB_VERSION} from './version'
 import {validate as uuidValidate} from 'uuid'
 import {PaginatedParameterList, Project, ProjectsParametersListParams} from './gen/data-contracts'
 import {HttpResponse} from './gen/http-client'
-
 import fetch from 'isomorphic-fetch'
-import {env} from 'process'
-import { clear } from 'console'
 
 const USER_AGENT = `configure-action/${LIB_VERSION}`
 
 export async function fetchWithRetry(
-  url: RequestInfo, {headers, ...options}: RequestInit = {},
+  url: RequestInfo,
+  {headers, ...options}: RequestInit = {},
   init?: RequestInit,
-  {timeoutInSeconds, tries } = {timeoutInSeconds: 10, tries: 3},
-) : Promise<Response> {
-  let response: Response;
-  let controller: AbortController;
+  {timeoutInSeconds, tries} = {timeoutInSeconds: 10, tries: 1}
+): Promise<Response> {
+  let response: Response
+  let controller: AbortController
 
+  core.debug(`Fetching ${url} with ${timeoutInSeconds} seconds timeout and will try ${tries} time(s).`)
   for (let tryCount = 0; tryCount < tries; tryCount++) {
-    let timeoutId;
+    core.debug(`Try ${tryCount + 1} of ${tries}.`)
+    let timeoutId
 
     try {
-      core.info(`Fetching ${url} with ${timeoutInSeconds} seconds timeout and will try ${tries} time(s).`);
-      controller = new AbortController();
-      timeoutId = setTimeout(() => controller.abort(), timeoutInSeconds * 1000);
-     throw new Error(tryCount.toString())
+      controller = new AbortController()
+      timeoutId = setTimeout(() => controller.abort(), timeoutInSeconds * 1000)
       response = await fetch(url, {
         signal: controller.signal,
         headers: {
           'User-Agent': USER_AGENT,
           ...headers
-        }, ...init});
+        },
+        ...init
+      })
 
-      core.info(`Response status: ${response.status}`);
-      core.info(`timeoutId: ${timeoutId}`);
-      clearTimeout(timeoutId);
+      clearTimeout(timeoutId)
 
-      if (response.ok) {
-        return response;
-      }
-    } catch (e) {
+      return response
+    } catch (error: any) {
+      core.debug(`Caught error ${error}`)
       if (timeoutId) {
-        clearTimeout(timeoutId);
+        clearTimeout(timeoutId)
       }
 
-      if (!(e instanceof DOMException) || e.name !== 'AbortError') {
-        throw e;
+      if (!(error instanceof DOMException) || error.name !== 'AbortError') {
+        throw error
       }
     }
   }
 
-  throw new Error(
-    `Failed to fetch ${url} after ${tries} tries with ${timeoutInSeconds} seconds timeout.`
-  );
+  throw new Error(`Failed to fetch ${url} after ${tries} tries.`)
 }
 
 export const configurefetch = (
@@ -92,6 +86,7 @@ export function api(): Api<SecurityDataType> {
     }
   })
   api.setSecurityData({apikey: core.getInput('apikey')})
+  core.debug(`Using API server ${JSON.stringify(api)}`)
   return api
 }
 
@@ -149,20 +144,32 @@ export async function run(): Promise<void> {
     const tag = core.getInput('tag') || undefined
 
     for (let page = 1; ; ++page) {
-      core.debug(
-        `Requesting parameter values for project='${project_id}' environment='${environment}' tag='${tag}' page=${page}`
-      )
       let page_size = undefined
       if (process.env.TESTING_REST_API_PAGE_SIZE) {
         page_size = parseInt(process.env.TESTING_REST_API_PAGE_SIZE)
       }
-      const response = await client.projectsParametersList({
+
+      const payload = {
         projectPk: project_id,
-        environment: environment, // can be name or id
-        tag: tag,
+        environment: environment,
         page: page,
         page_size: page_size
-      })
+      } as ProjectsParametersListParams
+
+      if (tag) {
+        payload.tag = tag
+        core.debug(
+          `Requesting parameter values for project='${project_id}' environment='${environment}' tag='${tag}' page=${page}`
+        )
+      } else {
+        core.debug(`Requesting parameter values for project='${project_id}' environment='${environment}' page=${page}`)
+      }
+
+      core.debug(`Payload ${JSON.stringify(payload)}`)
+      const response = await client.projectsParametersList(payload)
+      core.debug(`Received ${response.data.results!.length} parameters.`)
+      core.debug(`Data: ${JSON.stringify(response.data)}`)
+
       inject(response)
       if (response.data.next == null) {
         if (page == 1 && response.data.count == 0) {
