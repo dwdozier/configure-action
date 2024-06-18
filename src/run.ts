@@ -16,14 +16,12 @@ export async function fetchWithRetry(
   url: RequestInfo,
   {headers, ...options}: RequestInit = {},
   init?: RequestInit,
-  {timeoutInSeconds, tries} = {timeoutInSeconds: 10, tries: 1}
+  {timeoutInSeconds, tries} = {timeoutInSeconds: 10, tries: 3}
 ): Promise<Response> {
   let response: Response
   let controller: AbortController
 
-  core.info(`Fetching ${url} with ${timeoutInSeconds} seconds timeout and will try ${tries} time(s).`)
   for (let tryCount = 0; tryCount < tries; tryCount++) {
-    core.info(`Try ${tryCount + 1} of ${tries}.`)
     let timeoutId
 
     try {
@@ -45,10 +43,6 @@ export async function fetchWithRetry(
       core.info(`Caught error ${error}`)
       if (timeoutId) {
         clearTimeout(timeoutId)
-      }
-
-      if (!(error instanceof DOMException) || error.name !== 'AbortError') {
-        throw error
       }
     }
   }
@@ -98,8 +92,6 @@ function inject(response: HttpResponse<PaginatedParameterList>): void {
     const effectiveValue = valueRecord?.value
     const isSecret = entry.secret
     const parameterName = entry.name
-
-    core.info(`I'm alive`)
 
     if (effectiveValue != null) {
       if (parameterName in process.env && !overwrite) {
@@ -160,17 +152,9 @@ export async function run(): Promise<void> {
 
       if (tag) {
         payload.tag = tag
-        core.info(
-          `Requesting parameter values for project='${project_id}' environment='${environment}' tag='${tag}' page=${page}`
-        )
-      } else {
-        core.info(`Requesting parameter values for project='${project_id}' environment='${environment}' page=${page}`)
       }
 
-      core.info(`Payload ${JSON.stringify(payload)}`)
       const response = await client.projectsParametersList(payload)
-      core.info(`Received ${response.data.results!.length} parameters.`)
-      core.info(`Data: ${JSON.stringify(response.data)}`)
 
       inject(response)
       if (response.data.next == null) {

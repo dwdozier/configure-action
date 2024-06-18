@@ -2841,12 +2841,10 @@ const version_1 = __nccwpck_require__(8217);
 const uuid_1 = __nccwpck_require__(5840);
 const isomorphic_fetch_1 = __importDefault(__nccwpck_require__(2340));
 const USER_AGENT = `configure-action/${version_1.LIB_VERSION}`;
-async function fetchWithRetry(url, { headers, ...options } = {}, init, { timeoutInSeconds, tries } = { timeoutInSeconds: 10, tries: 1 }) {
+async function fetchWithRetry(url, { headers, ...options } = {}, init, { timeoutInSeconds, tries } = { timeoutInSeconds: 10, tries: 3 }) {
     let response;
     let controller;
-    core.info(`Fetching ${url} with ${timeoutInSeconds} seconds timeout and will try ${tries} time(s).`);
     for (let tryCount = 0; tryCount < tries; tryCount++) {
-        core.info(`Try ${tryCount + 1} of ${tries}.`);
         let timeoutId;
         try {
             controller = new AbortController();
@@ -2866,9 +2864,6 @@ async function fetchWithRetry(url, { headers, ...options } = {}, init, { timeout
             core.info(`Caught error ${error}`);
             if (timeoutId) {
                 clearTimeout(timeoutId);
-            }
-            if (!(error instanceof DOMException) || error.name !== 'AbortError') {
-                throw error;
             }
         }
     }
@@ -2913,7 +2908,6 @@ function inject(response) {
         const effectiveValue = valueRecord?.value;
         const isSecret = entry.secret;
         const parameterName = entry.name;
-        core.info(`I'm alive`);
         if (effectiveValue != null) {
             if (parameterName in process.env && !overwrite) {
                 throw new Error(`The environment variable "${parameterName}" already exists and cannot be overwritten.`);
@@ -2967,15 +2961,8 @@ async function run() {
             };
             if (tag) {
                 payload.tag = tag;
-                core.info(`Requesting parameter values for project='${project_id}' environment='${environment}' tag='${tag}' page=${page}`);
             }
-            else {
-                core.info(`Requesting parameter values for project='${project_id}' environment='${environment}' page=${page}`);
-            }
-            core.info(`Payload ${JSON.stringify(payload)}`);
             const response = await client.projectsParametersList(payload);
-            core.info(`Received ${response.data.results.length} parameters.`);
-            core.info(`Data: ${JSON.stringify(response.data)}`);
             inject(response);
             if (response.data.next == null) {
                 if (page == 1 && response.data.count == 0) {
