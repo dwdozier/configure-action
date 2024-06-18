@@ -21,9 +21,9 @@ export async function fetchWithRetry(
   let response: Response
   let controller: AbortController
 
-  core.debug(`Fetching ${url} with ${timeoutInSeconds} seconds timeout and will try ${tries} time(s).`)
+  core.info(`Fetching ${url} with ${timeoutInSeconds} seconds timeout and will try ${tries} time(s).`)
   for (let tryCount = 0; tryCount < tries; tryCount++) {
-    core.debug(`Try ${tryCount + 1} of ${tries}.`)
+    core.info(`Try ${tryCount + 1} of ${tries}.`)
     let timeoutId
 
     try {
@@ -42,7 +42,7 @@ export async function fetchWithRetry(
 
       return response
     } catch (error: any) {
-      core.debug(`Caught error ${error}`)
+      core.info(`Caught error ${error}`)
       if (timeoutId) {
         clearTimeout(timeoutId)
       }
@@ -158,17 +158,17 @@ export async function run(): Promise<void> {
 
       if (tag) {
         payload.tag = tag
-        core.debug(
+        core.info(
           `Requesting parameter values for project='${project_id}' environment='${environment}' tag='${tag}' page=${page}`
         )
       } else {
-        core.debug(`Requesting parameter values for project='${project_id}' environment='${environment}' page=${page}`)
+        core.info(`Requesting parameter values for project='${project_id}' environment='${environment}' page=${page}`)
       }
 
-      core.debug(`Payload ${JSON.stringify(payload)}`)
+      core.info(`Payload ${JSON.stringify(payload)}`)
       const response = await client.projectsParametersList(payload)
-      core.debug(`Received ${response.data.results!.length} parameters.`)
-      core.debug(`Data: ${JSON.stringify(response.data)}`)
+      core.info(`Received ${response.data.results!.length} parameters.`)
+      core.info(`Data: ${JSON.stringify(response.data)}`)
 
       inject(response)
       if (response.data.next == null) {
