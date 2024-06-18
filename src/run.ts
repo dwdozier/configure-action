@@ -99,6 +99,8 @@ function inject(response: HttpResponse<PaginatedParameterList>): void {
     const isSecret = entry.secret
     const parameterName = entry.name
 
+    core.info(`I'm alive`)
+
     if (effectiveValue != null) {
       if (parameterName in process.env && !overwrite) {
         throw new Error(`The environment variable "${parameterName}" already exists and cannot be overwritten.`)
